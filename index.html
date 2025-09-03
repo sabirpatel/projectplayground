@@ -245,6 +245,14 @@
   <script>
     // ------- Persistence -------
     const STORAGE_KEY = 'funPM_state_v1';
+    // --- JSONBin configuration ---
+    // 1) Create an account at https://jsonbin.io
+    // 2) Create a private bin and copy its Bin ID
+    // 3) Create a Secret API Key and paste below
+    const JSONBIN_BIN_ID = '68b87ac343b1c97be935bcb2';
+    const JSONBIN_API_KEY = '$2b$10$n4neKJoBT8p8Jd9Vo6bLHOZal/PXVKVUVsh/EIslRSKpma1vPACsK';
+    const JSONBIN_BASE = 'https://api.jsonbin.io/v3';
+    const useJsonBin = JSONBIN_BIN_ID && JSONBIN_API_KEY && !JSONBIN_BIN_ID.startsWith('YOUR_') && !JSONBIN_API_KEY.startsWith('YOUR_');
     const $ = (sel, root=document) => root.querySelector(sel);
     const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
@@ -260,8 +268,45 @@
     const EMOJI_NAMES = ['Sai','Sanath','Maha','John','Nishant','Nag','Deepak','Shaz','Prasanna','Zhou','Sonali','Alex','Dan'];
     const isSingleLetterName = (n) => typeof n === 'string' && /^[A-Z]$/i.test(n.trim());
 
-    function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-    function loadState() {
+    async function saveState() {
+      // Always keep a local cache for offline/first paint
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      if (!useJsonBin) return; // no remote configured
+      try {
+        await fetch(`${JSONBIN_BASE}/b/${JSONBIN_BIN_ID}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_API_KEY,
+            'X-Bin-Name': 'Fun Project Tracker',
+            'X-Bin-Versioning': 'false'
+          },
+          body: JSON.stringify(state)
+        });
+      } catch (e) {
+        console.warn('JSONBin save failed; using local cache only', e);
+      }
+    }
+    async function loadState() {
+      if (useJsonBin) {
+        try {
+          const res = await fetch(`${JSONBIN_BASE}/b/${JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': JSONBIN_API_KEY }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            // JSONBin v3 wraps your content under `.record`
+            const record = data && (data.record || data);
+            if (record && typeof record === 'object') {
+              try { localStorage.setItem(STORAGE_KEY, JSON.stringify(record)); } catch {}
+              return record;
+            }
+          }
+        } catch (e) {
+          console.warn('JSONBin load failed; falling back to local cache', e);
+        }
+      }
+      // Fallback: local cache
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       try { return JSON.parse(raw); } catch { return null; }
@@ -281,23 +326,21 @@
       }));
     };
 
-    let state = loadState() || { team: defaultTeam(), projects: [] };
+    let state = { team: defaultTeam(), projects: [] };
 
     // ------- Migration: ensure team has emojis and friendly names -------
-    (function migrateTeam(){
+    function migrateTeam() {
       if (!state || !Array.isArray(state.team)) return;
       let changed = false;
       state.team.forEach((m, i) => {
-        // Assign emoji if missing
         if (!m.emoji) { m.emoji = pickEmoji(i); changed = true; }
-        // If the name looks like a placeholder (single letter), replace with themed name
         if (isSingleLetterName(m.name)) { m.name = EMOJI_NAMES[i % EMOJI_NAMES.length]; changed = true; }
-        // Refresh initials from (possibly new) name
         const newInitials = (m.name || '').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
         if (m.initials !== newInitials) { m.initials = newInitials; changed = true; }
       });
       if (changed) saveState();
-    })();
+    }
+    migrateTeam();
 
     // ------- Utilities -------
     function rgba(hex, alpha=.6) {
@@ -655,13 +698,24 @@
       if (!confirm('This will clear all projects and assignments. Continue?')) return;
       localStorage.removeItem(STORAGE_KEY);
       state = { team: defaultTeam(), projects: [] };
+      saveState();
       renderTeamBench();
       renderProjects();
     });
 
     // ------- Init -------
-    renderTeamBench();
-    renderProjects();
+    (async function init() {
+      // Start with whatever is in local cache/state, then hydrate from JSONBin if configured
+      try {
+        const remote = await loadState();
+        if (remote && typeof remote === 'object') {
+          state = remote;
+          migrateTeam();
+        }
+      } catch {}
+      renderTeamBench();
+      renderProjects();
+    })();
   </script>
 </body>
 </html>
