@@ -30,6 +30,21 @@
       .alert-info { background: rgba(56, 132, 255, .12); color: #cfe2ff; border-color: rgba(56,132,255,.25); }
     }
 
+    /* --- Explicit theme overrides (manual toggle wins over prefers-color-scheme) --- */
+    :root[data-theme="dark"] {
+      --bg: radial-gradient(1200px 600px at 10% 0%, #1e2130, transparent), radial-gradient(1200px 600px at 100% 0%, #1b2030, transparent), #0f1220;
+      --surface: rgba(20, 24, 38, 0.7);
+      --border: 1px solid rgba(255, 255, 255, 0.06);
+      --shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    :root[data-theme="dark"] body,
+    :root[data-theme="dark"] .navbar { color-scheme: dark; }
+    :root[data-theme="dark"] .navbar { background: rgba(18, 20, 34, 0.7)!important; }
+    :root[data-theme="dark"] .alert-info { background: rgba(56, 132, 255, .12); color: #cfe2ff; border-color: rgba(56,132,255,.25); }
+
+    :root[data-theme="light"] body,
+    :root[data-theme="light"] .navbar { color-scheme: light; }
+
     html, body { height: 100%; }
     body { background: var(--bg); font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
 
@@ -137,6 +152,7 @@
     <div class="container">
       <a class="navbar-brand fw-bold" href="#">🎉 Project Playground</a>
       <div class="d-flex gap-2 ms-auto">
+        <button class="btn btn-outline-secondary" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">🌞 Light</button>
         <button class="btn btn-outline-secondary" id="exportBtn" title="Export data (JSON)">Export</button>
         <button class="btn btn-outline-danger" id="resetBtn" title="Clear all data">Reset</button>
         <button class="btn btn-outline-primary" id="addMemberBtn" type="button" title="Add a team member">Add Member</button>
@@ -651,6 +667,30 @@
     }
 
     // ------- Event Wiring -------
+    // ------- Theme (manual override) -------
+    const THEME_KEY = 'fpt_theme';
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      const t = (theme === 'dark' || theme === 'light') ? theme : 'light';
+      root.setAttribute('data-theme', t);
+      const btn = $('#themeToggle');
+      if (btn) {
+        if (t === 'dark') btn.textContent = '🌙 Dark'; else btn.textContent = '🌞 Light';
+      }
+    }
+    function initTheme() {
+      // prefer stored manual selection; otherwise start in light for consistency
+      const stored = localStorage.getItem(THEME_KEY);
+      const start = stored || 'light';
+      applyTheme(start);
+    }
+    $('#themeToggle').addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'light' ? 'dark' : 'light';
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
+    initTheme();
     $('#projectForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const name = $('#projName').value.trim();
