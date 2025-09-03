@@ -113,6 +113,23 @@
     .hint { font-size: .95rem; border: var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
 
     .card-title { font-weight: 800; }
+
+    .team-title {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .25rem .6rem;
+      border-radius: 999px;
+      font-weight: 900;
+      letter-spacing: .4px;
+      background: linear-gradient(135deg, #0d6efd, #6610f2);
+      color: #fff;
+      box-shadow: 0 6px 18px rgba(13,110,253,.35);
+      text-transform: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .team-title { box-shadow: 0 10px 24px rgba(0,0,0,.45); }
+    }
   </style>
 </head>
 <body>
@@ -122,6 +139,7 @@
       <div class="d-flex gap-2 ms-auto">
         <button class="btn btn-outline-secondary" id="exportBtn" title="Export data (JSON)">Export</button>
         <button class="btn btn-outline-danger" id="resetBtn" title="Clear all data">Reset</button>
+        <button class="btn btn-outline-primary" id="addMemberBtn" type="button" title="Add a team member">Add Member</button>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">➕ Add Project</button>
       </div>
     </div>
@@ -130,8 +148,7 @@
   <main class="container my-4">
     <section>
       <div class="d-flex align-items-center justify-content-between mb-2">
-        <h6 class="text-uppercase text-muted mb-0">Team</h6>
-        <small class="text-muted">Drag a person onto a project to assign</small>
+        <h6 class="mb-0"><span class="team-title">🇺🇸 Team USA 01</span></h6>
       </div>
       <div id="teamBench" class="bench d-flex overflow-auto pb-2"></div>
     </section>
@@ -265,6 +282,7 @@
 
     const DEFAULT_EMOJIS = ['🦊','🐼','🐨','🦁','🐯','🐸','🐵','🐰','🐶','🐱','🦄','🐙','🐧'];
     const pickEmoji = (i) => DEFAULT_EMOJIS[i % DEFAULT_EMOJIS.length];
+    const pickRandomEmoji = () => DEFAULT_EMOJIS[Math.floor(Math.random() * DEFAULT_EMOJIS.length)];
     const EMOJI_NAMES = ['Sai','Sanath','Maha','John','Nishant','Nag','Deepak','Shaz','Prasanna','Zhou','Sonali','Alex','Dan'];
     const isSingleLetterName = (n) => typeof n === 'string' && /^[A-Z]$/i.test(n.trim());
 
@@ -593,13 +611,21 @@
 
     // ------- Team Member Editing -------
     let editingMemberId = null;
-    function openMemberModal(memberId) {
+    function openMemberModal(memberId = null) {
       editingMemberId = memberId;
-      const m = state.team.find(t=>t.id===memberId);
-      if (!m) return;
-      $('#memberId').value = m.id;
-      $('#memberName').value = m.name;
-      $('#memberEmoji').value = m.emoji || '';
+      const titleEl = $('#memberModal .modal-title');
+      const m = memberId ? state.team.find(t=>t.id===memberId) : null;
+      if (m) {
+        titleEl.textContent = 'Edit Team Member';
+        $('#memberId').value = m.id;
+        $('#memberName').value = m.name;
+        $('#memberEmoji').value = m.emoji || '';
+      } else {
+        titleEl.textContent = 'Add Team Member';
+        $('#memberId').value = '';
+        $('#memberName').value = '';
+        $('#memberEmoji').value = '';
+      }
       const modal = new bootstrap.Modal($('#memberModal'));
       modal.show();
     }
@@ -658,19 +684,32 @@
       const id = $('#memberId').value;
       const name = $('#memberName').value.trim();
       const emojiInput = $('#memberEmoji').value.trim();
-      const m = state.team.find(t=>t.id===id);
-      if (!m) return;
-      m.name = name || m.name;
-      // accept a single emoji code point or short string
-      m.emoji = emojiInput || '';
-      // refresh initials based on (possibly) new name
-      m.initials = m.name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+      if (!name) { alert('Name is required.'); return; }
+
+      const existing = state.team.find(t=>t.id===id);
+      if (existing) {
+        // Edit flow
+        existing.name = name;
+        existing.emoji = emojiInput || existing.emoji || pickRandomEmoji();
+        existing.initials = name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+      } else {
+        // Add flow
+        const newMember = {
+          id: uid(),
+          name,
+          initials: name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase(),
+          color: pastel(),
+          emoji: emojiInput || pickRandomEmoji()
+        };
+        state.team.push(newMember);
+      }
+
       saveState();
-      // re-render bench and projects so assigned avatars update too
       renderTeamBench();
       renderProjects();
       bootstrap.Modal.getInstance($('#memberModal')).hide();
     });
+    $('#addMemberBtn').addEventListener('click', () => openMemberModal(null));
 
     // Global click handlers for Delete / Add Blocker buttons
     document.addEventListener('click', (e) => {
