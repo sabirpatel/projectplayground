@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fun Project Tracker</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #f7f9ff 0%, #f3f5ff 35%, #eef5ff 100%);
+      --surface: rgba(255, 255, 255, 0.7);
+      --border: 1px solid rgba(20, 20, 60, 0.08);
+      --shadow: 0 10px 30px rgba(20, 20, 60, 0.08);
+      --avatar-size: 64px;
+      --bar-height: 36px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: radial-gradient(1200px 600px at 10% 0%, #1e2130, transparent), radial-gradient(1200px 600px at 100% 0%, #1b2030, transparent), #0f1220;
+        --surface: rgba(20, 24, 38, 0.7);
+        --border: 1px solid rgba(255, 255, 255, 0.06);
+        --shadow: 0 10px 30px rgba(0,0,0,.45);
+      }
+      body, .navbar { color-scheme: dark; }
+      .navbar { background: rgba(18, 20, 34, 0.7)!important; }
+      .alert-info { background: rgba(56, 132, 255, .12); color: #cfe2ff; border-color: rgba(56,132,255,.25); }
+    }
+
+    html, body { height: 100%; }
+    body { background: var(--bg); font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; }
+
+    .navbar { backdrop-filter: saturate(140%) blur(10px); -webkit-backdrop-filter: saturate(140%) blur(10px); border: none!important; box-shadow: var(--shadow); }
+    .navbar-brand { letter-spacing: .3px; }
+
+    .avatar {
+      width: var(--avatar-size);
+      height: var(--avatar-size);
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      user-select: none;
+      cursor: grab;
+      border: 4px solid rgba(255,255,255,.9);
+      outline: 2px solid rgba(0,0,0,.05);
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      transition: transform .12s ease, box-shadow .2s ease;
+    }
+    .avatar:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(0,0,0,.16); }
+    .avatar:active { cursor: grabbing; transform: scale(.97); }
+    .avatar-sm { width: 40px; height: 40px; font-size: .85rem; border-width: 3px; }
+
+    .avatar .emoji { font-size: 1.35rem; line-height: 1; }
+    .avatar-sm .emoji { font-size: 1rem; }
+
+    .avatar-wrap-sm { width: 40px; }
+    .avatar-name-sm { margin-top: .2rem; font-size: .7rem; line-height: 1; text-align: center; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (prefers-color-scheme: dark) { .avatar-name-sm { color: #adb5bd; } }
+
+    .bench { gap: .8rem; }
+    .bench .avatar { flex: 0 0 auto; }
+    .avatar.dimmed { opacity: .38; filter: saturate(60%) contrast(95%); }
+
+    .avatar-wrap { display: flex; flex-direction: column; align-items: center; width: var(--avatar-size); }
+    .avatar-name { margin-top: .25rem; font-size: .75rem; line-height: 1; font-weight: 600; color: #6c757d; text-align: center; max-width: var(--avatar-size); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (prefers-color-scheme: dark) { .avatar-name { color: #adb5bd; } }
+
+    .project-card {
+      border: 0; border-radius: 20px; background: var(--surface);
+      backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%);
+      box-shadow: var(--shadow);
+    }
+
+    .color-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.06); margin-right: .4rem; }
+
+    .dropzone {
+      border-radius: 14px; padding: .6rem; min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+      background: rgba(120, 130, 255, .06); border: 1px dashed rgba(100, 110, 255, .35);
+      transition: background .2s, border-color .2s, transform .2s;
+    }
+    .dropzone.dragover { background: rgba(120, 130, 255, .15); border-color: rgba(100, 110, 255, .65); transform: scale(1.01); }
+
+    .bar-wrap { position: relative; height: var(--bar-height); border-radius: 999px; overflow: hidden; background: rgba(0,0,0,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 6px 18px rgba(0,0,0,.08); }
+    .bar-base { position: absolute; inset: 0; opacity: .2; }
+    .bar-fill { position: absolute; inset: 0; width: 0%; height: 100%; transition: width .35s ease; filter: saturate(115%); }
+    .bar-fill::after { /* subtle highlight */
+      content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.25), rgba(255,255,255,0)); mix-blend-mode: screen;
+    }
+    .bar-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; letter-spacing: .3px; color: rgba(0,0,0,.75); text-shadow: 0 1px 0 rgba(255,255,255,.8); }
+
+    .blocker-pin {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      z-index: 3;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+    }
+    .blocker-pin:hover { transform: translate(-50%, -50%) scale(1.08); }
+
+    .blocker-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border-radius: 999px; font-size: .9rem; line-height: 1; padding: .35rem .6rem; box-shadow: 0 8px 20px rgba(255,193,7,.35); border: 0; backdrop-filter: blur(6px); }
+
+    .badge-circle { border-radius: 999px; }
+
+    .hint { font-size: .95rem; border: var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+
+    .card-title { font-weight: 800; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#">🎉 Project Playground</a>
+      <div class="d-flex gap-2 ms-auto">
+        <button class="btn btn-outline-secondary" id="exportBtn" title="Export data (JSON)">Export</button>
+        <button class="btn btn-outline-danger" id="resetBtn" title="Clear all data">Reset</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">➕ Add Project</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container my-4">
+    <section>
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="text-uppercase text-muted mb-0">Team</h6>
+        <small class="text-muted">Drag a person onto a project to assign</small>
+      </div>
+      <div id="teamBench" class="bench d-flex overflow-auto pb-2"></div>
+    </section>
+
+    <section class="mt-3">
+      <div class="alert alert-info py-2 hint" role="alert">
+        Tip: Right‑click or long‑press the project bar to add a blocker. Click the bar to set % complete. Everything auto‑saves in your browser.
+      </div>
+      <div id="dashboard" class="row g-3"></div>
+    </section>
+  </main>
+
+  <!-- Create / Edit Project Modal -->
+  <div class="modal fade" id="projectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="projectForm">
+          <div class="modal-header">
+            <h5 class="modal-title">Create Project</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Project Name</label>
+              <input type="text" class="form-control" id="projName" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" id="projDesc" rows="2" required></textarea>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="projStart" required />
+              </div>
+              <div class="col-6">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-control" id="projEnd" required />
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="form-label">Color</label>
+              <input type="color" class="form-control form-control-color" id="projColor" value="#5c7cfa" title="Choose project color" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Blocker Modal -->
+  <div class="modal fade" id="blockerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="blockerForm">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Blocker 🚧</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Describe the blocker</label>
+              <textarea class="form-control" id="blockerDesc" rows="3" required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-warning">Add Blocker</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Team Member Modal -->
+  <div class="modal fade" id="memberModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="memberForm">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Team Member</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="memberId" />
+            <div class="mb-3">
+              <label class="form-label">Name</label>
+              <input type="text" class="form-control" id="memberName" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Emoji</label>
+              <input type="text" class="form-control" id="memberEmoji" placeholder="e.g., 🦊" maxlength="4" />
+              <div class="form-text">Enter a single emoji. Leave blank to use initials.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap Bundle (JS + Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ------- Persistence -------
+    const STORAGE_KEY = 'funPM_state_v1';
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+    const uid = () => Math.random().toString(36).slice(2, 10);
+
+    const pastel = () => {
+      const h = Math.floor(Math.random()*360);
+      return `hsl(${h} 70% 55%)`;
+    };
+
+    const DEFAULT_EMOJIS = ['🦊','🐼','🐨','🦁','🐯','🐸','🐵','🐰','🐶','🐱','🦄','🐙','🐧'];
+    const pickEmoji = (i) => DEFAULT_EMOJIS[i % DEFAULT_EMOJIS.length];
+    const EMOJI_NAMES = ['Sai','Sanath','Maha','John','Nishant','Nag','Deepak','Shaz','Prasanna','Zhou','Sonali','Alex','Dan'];
+    const isSingleLetterName = (n) => typeof n === 'string' && /^[A-Z]$/i.test(n.trim());
+
+    function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+
+    // ------- Initial Data -------
+    const defaultTeam = () => {
+      const names = [
+        'Aiden','Bella','Chloe','Diego','Ethan','Fiona','Grace','Henry','Ivy','Jack','Kai','Luna','Maya'
+      ];
+      return names.map((n, i) => ({
+        id: uid(),
+        name: n,
+        initials: n.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase(),
+        color: pastel(),
+        emoji: pickEmoji(i)
+      }));
+    };
+
+    let state = loadState() || { team: defaultTeam(), projects: [] };
+
+    // ------- Migration: ensure team has emojis and friendly names -------
+    (function migrateTeam(){
+      if (!state || !Array.isArray(state.team)) return;
+      let changed = false;
+      state.team.forEach((m, i) => {
+        // Assign emoji if missing
+        if (!m.emoji) { m.emoji = pickEmoji(i); changed = true; }
+        // If the name looks like a placeholder (single letter), replace with themed name
+        if (isSingleLetterName(m.name)) { m.name = EMOJI_NAMES[i % EMOJI_NAMES.length]; changed = true; }
+        // Refresh initials from (possibly new) name
+        const newInitials = (m.name || '').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+        if (m.initials !== newInitials) { m.initials = newInitials; changed = true; }
+      });
+      if (changed) saveState();
+    })();
+
+    // ------- Utilities -------
+    function rgba(hex, alpha=.6) {
+      if (hex.startsWith('hsl')) return hex; // already HSL
+      const m = hex.match(/#([\da-f]{2})([\da-f]{2})([\da-f]{2})/i);
+      if (!m) return 'rgba(0,0,0,'+alpha+')';
+      const r = parseInt(m[1],16), g = parseInt(m[2],16), b = parseInt(m[3],16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function getAssignedMemberIds() {
+      const set = new Set();
+      (state.projects || []).forEach(p => (p.assignees || []).forEach(id => set.add(id)));
+      return set;
+    }
+
+    // ------- Rendering Team Bench -------
+    function renderTeamBench() {
+      const bench = $('#teamBench');
+      bench.innerHTML = '';
+      const assigned = getAssignedMemberIds();
+      state.team.forEach(member => {
+        const wrap = document.createElement('div');
+        wrap.className = 'avatar-wrap';
+
+        const el = document.createElement('div');
+        el.className = 'avatar';
+        el.style.background = member.color;
+        el.setAttribute('draggable','true');
+        el.dataset.memberId = member.id;
+        el.innerHTML = `<span class="emoji">${member.emoji || member.initials}</span>`;
+
+        el.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', member.id);
+          e.dataTransfer.effectAllowed = 'copy';
+        });
+        // Open edit modal on double-click
+        el.addEventListener('dblclick', () => openMemberModal(member.id));
+        // Long-press for touch devices
+        let lpTimer = null;
+        el.addEventListener('touchstart', () => { lpTimer = setTimeout(()=>openMemberModal(member.id), 600); }, {passive:true});
+        el.addEventListener('touchend', () => { clearTimeout(lpTimer); });
+
+        if (assigned.has(member.id)) el.classList.add('dimmed');
+        else el.classList.remove('dimmed');
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'avatar-name';
+        nameEl.textContent = member.name;
+
+        wrap.appendChild(el);
+        wrap.appendChild(nameEl);
+        bench.appendChild(wrap);
+      });
+    }
+
+    function daysBetween(start, end) {
+      const s = new Date(start), e = new Date(end);
+      return Math.max(1, Math.round((e - s) / (1000*60*60*24)));
+    }
+
+    // ------- Rendering Projects -------
+    function renderProjects() {
+      const dash = $('#dashboard');
+      dash.innerHTML = '';
+
+      if (state.projects.length === 0) {
+        dash.innerHTML = `<div class="col-12"><div class="text-center text-muted py-5">
+          <div class="display-6 mb-2">No projects yet</div>
+          <p>Add your first project with the <strong>➕ Add Project</strong> button.</p></div></div>`;
+        return;
+      }
+
+      state.projects.forEach(project => {
+        const col = document.createElement('div');
+        col.className = 'col-12';
+
+        const totalDays = daysBetween(project.startDate, project.endDate);
+        const progress = Math.min(100, Math.max(0, project.progress || 0));
+        const blockers = project.blockers || [];
+        const assignees = (project.assignees || []).map(id => state.team.find(t=>t.id===id)).filter(Boolean);
+        const pinHtml = blockers.map((b, i) => {
+          // place pins near the current progress, spaced by 4%
+          const pos = Math.min(98, Math.max(2, (progress || 0) + i * 4));
+          return `<span class="blocker-pin" data-blocker-id="${b.id}" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(b.description)}" style="left:${pos}%" aria-label="Blocker: ${escapeHtml(b.description)}">🚧</span>`;
+        }).join('');
+
+        col.innerHTML = `
+          <div class="card project-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="color-dot" style="background:${project.color}"></span>
+                  <h5 class="card-title mb-0" data-bs-toggle="tooltip" data-bs-title="${escapeHtml(project.description)}">${project.name}</h5>
+                  <div class="ms-2 d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-warning p-1" data-action="add-blocker" data-project-id="${project.id}" title="Add blocker" aria-label="Add blocker">🚧</button>
+                    <button class="btn btn-sm btn-outline-danger p-1" data-action="delete" data-project-id="${project.id}" title="Delete project" aria-label="Delete project">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="text-muted small">${project.startDate} → ${project.endDate} · ${totalDays} day(s)</div>
+              </div>
+
+              <div class="mb-3">
+                <div class="dropzone" data-project-id="${project.id}" aria-label="Drop team members here">
+                  ${assignees.map(a => `
+                    <div class="avatar-wrap avatar-wrap-sm">
+                      <div class="avatar avatar-sm" style="background:${a.color}" data-member-id="${a.id}" role="button">
+                        <span class="emoji">${a.emoji || a.initials}</span>
+                      </div>
+                      <div class="avatar-name avatar-name-sm" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+                    </div>
+                  `).join('')}
+                  ${assignees.length ? '' : '<span class="text-muted ms-1 small dz-tip">Drop teammates here.To remove click the icon.</span>'}
+                </div>
+              </div>
+
+              <div class="bar-wrap mt-2" data-project-id="${project.id}">
+                <div class="bar-base" style="background:${rgba(project.color, .25)}"></div>
+                <div class="bar-fill" style="background:${project.color}; width:${progress}%"></div>
+                ${pinHtml}
+                <div class="bar-label">${progress}% complete</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        dash.appendChild(col);
+
+        // Attach DnD handlers to this card's dropzone
+        const dz = col.querySelector('.dropzone');
+        dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+        dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+        dz.addEventListener('drop', (e) => {
+          e.preventDefault(); dz.classList.remove('dragover');
+          const memberId = e.dataTransfer.getData('text/plain');
+          assignMember(project.id, memberId);
+        });
+
+        // Remove an assignee on click
+        $$('.dropzone .avatar', col).forEach(av => {
+          av.addEventListener('click', () => {
+            const memberId = av.dataset.memberId;
+            unassignMember(project.id, memberId);
+          });
+        });
+
+        // Click to set progress (ignore blocker button clicks and long-press)
+        const bar = col.querySelector('.bar-wrap');
+        bar.addEventListener('click', (e) => {
+          if (e.target.closest('.blocker-btn')) return; // don't change progress when clicking the blocker button
+          if (bar.dataset.longpress === '1') { bar.dataset.longpress = '0'; return; } // ignore synthetic click after long-press
+          const rect = bar.getBoundingClientRect();
+          const clientX = (e.touches && e.touches[0] && e.touches[0].clientX) || e.clientX || 0;
+          const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+          const value = Math.round(x * 100);
+          updateProgress(project.id, value);
+        });
+        bar.addEventListener('contextmenu', (e) => { e.preventDefault(); openBlockerModal(project.id); });
+        // Long-press for touch devices (prevents subsequent click from setting progress)
+        let pressTimer = null;
+        bar.addEventListener('touchstart', () => {
+          bar.dataset.longpress = '0';
+          pressTimer = setTimeout(() => {
+            bar.dataset.longpress = '1';
+            openBlockerModal(project.id);
+          }, 600);
+        }, { passive: true });
+        bar.addEventListener('touchmove', () => { if (pressTimer) { clearTimeout(pressTimer); bar.dataset.longpress = '0'; } }, { passive: true });
+        bar.addEventListener('touchend', () => { if (pressTimer) { clearTimeout(pressTimer); } }, { passive: true });
+
+        // Double-click a blocker pin to delete it
+        col.addEventListener('dblclick', (e) => {
+          const pin = e.target.closest('.blocker-pin');
+          if (!pin) return;
+          const holder = pin.closest('[data-project-id]');
+          const projectId = holder && holder.getAttribute('data-project-id');
+          const blockerId = pin.getAttribute('data-blocker-id');
+          if (projectId && blockerId) {
+            // Dispose tooltip instance if present to avoid stray references
+            const tip = bootstrap.Tooltip.getInstance(pin);
+            if (tip) tip.dispose();
+            deleteBlocker(projectId, blockerId);
+          }
+        });
+      });
+
+      // Enable popovers
+      $$('[data-bs-toggle="popover"]').forEach(el => new bootstrap.Popover(el));
+      // Enable tooltips for project titles
+      $$('[data-bs-toggle="tooltip"]', dash).forEach(el => {
+        const inst = bootstrap.Tooltip.getInstance(el);
+        if (inst) inst.dispose();
+        new bootstrap.Tooltip(el);
+      });
+    }
+
+    // ------- State Mutations -------
+    function deleteBlocker(projectId, blockerId) {
+      const p = state.projects.find(p=>p.id===projectId);
+      if (!p || !p.blockers) return;
+      p.blockers = p.blockers.filter(b => b.id !== blockerId);
+      saveState();
+      renderProjects();
+    }
+    function assignMember(projectId, memberId) {
+      const p = state.projects.find(p=>p.id===projectId);
+      if (!p) return;
+      p.assignees = p.assignees || [];
+      if (!p.assignees.includes(memberId)) p.assignees.push(memberId);
+      saveState();
+      renderTeamBench();
+      renderProjects();
+    }
+    function unassignMember(projectId, memberId) {
+      const p = state.projects.find(p=>p.id===projectId);
+      if (!p || !p.assignees) return;
+      p.assignees = p.assignees.filter(id => id !== memberId);
+      saveState();
+      renderTeamBench();
+      renderProjects();
+    }
+    function updateProgress(projectId, value) {
+      const p = state.projects.find(p=>p.id===projectId);
+      if (!p) return;
+      p.progress = Math.min(100, Math.max(0, value));
+      p.lastProgressAt = new Date().toISOString();
+      saveState();
+      // Only update the width + label for smoother UX
+      const card = $(`[data-project-id="${projectId}"]`)?.closest('.card');
+      if (card) {
+        const fill = card.querySelector('.bar-fill');
+        const label = card.querySelector('.bar-label');
+        if (fill) fill.style.width = p.progress + '%';
+        if (label) label.textContent = p.progress + '% complete';
+      } else {
+        renderProjects();
+      }
+    }
+
+    function deleteProject(projectId) {
+      state.projects = state.projects.filter(p=>p.id!==projectId);
+      saveState();
+      renderTeamBench();
+      renderProjects();
+    }
+
+    let blockerProjectId = null;
+
+    // ------- Team Member Editing -------
+    let editingMemberId = null;
+    function openMemberModal(memberId) {
+      editingMemberId = memberId;
+      const m = state.team.find(t=>t.id===memberId);
+      if (!m) return;
+      $('#memberId').value = m.id;
+      $('#memberName').value = m.name;
+      $('#memberEmoji').value = m.emoji || '';
+      const modal = new bootstrap.Modal($('#memberModal'));
+      modal.show();
+    }
+
+    function openBlockerModal(projectId) {
+      blockerProjectId = projectId;
+      $('#blockerDesc').value = '';
+      const modal = new bootstrap.Modal($('#blockerModal'));
+      modal.show();
+    }
+
+    function addBlocker(description) {
+      const p = state.projects.find(p=>p.id===blockerProjectId);
+      if (!p) return;
+      p.blockers = p.blockers || [];
+      p.blockers.push({ id: uid(), description, date: new Date().toISOString() });
+      saveState();
+      renderProjects();
+    }
+
+    function escapeHtml(str) {
+      return (str||'').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]));
+    }
+
+    // ------- Event Wiring -------
+    $('#projectForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = $('#projName').value.trim();
+      const description = $('#projDesc').value.trim();
+      const startDate = $('#projStart').value;
+      const endDate = $('#projEnd').value;
+      const color = $('#projColor').value || '#5c7cfa';
+
+      if (new Date(endDate) < new Date(startDate)) {
+        alert('End date must be after start date.');
+        return;
+      }
+
+      state.projects.push({ id: uid(), name, description, startDate, endDate, color, progress: 0, assignees: [], blockers: [] });
+      saveState();
+      $('#projectForm').reset();
+      bootstrap.Modal.getInstance($('#projectModal')).hide();
+      renderProjects();
+    });
+
+    $('#blockerForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const desc = $('#blockerDesc').value.trim();
+      if (!desc) return;
+      addBlocker(desc);
+      bootstrap.Modal.getInstance($('#blockerModal')).hide();
+    });
+
+    $('#memberForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = $('#memberId').value;
+      const name = $('#memberName').value.trim();
+      const emojiInput = $('#memberEmoji').value.trim();
+      const m = state.team.find(t=>t.id===id);
+      if (!m) return;
+      m.name = name || m.name;
+      // accept a single emoji code point or short string
+      m.emoji = emojiInput || '';
+      // refresh initials based on (possibly) new name
+      m.initials = m.name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+      saveState();
+      // re-render bench and projects so assigned avatars update too
+      renderTeamBench();
+      renderProjects();
+      bootstrap.Modal.getInstance($('#memberModal')).hide();
+    });
+
+    // Global click handlers for Delete / Add Blocker buttons
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const projectId = btn.dataset.projectId;
+      const action = btn.dataset.action;
+      if (action === 'delete') {
+        if (confirm('Delete this project?')) deleteProject(projectId);
+      }
+      if (action === 'add-blocker') {
+        openBlockerModal(projectId);
+      }
+    });
+
+    // Export / Reset
+    $('#exportBtn').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'fun-project-tracker.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+    $('#resetBtn').addEventListener('click', () => {
+      if (!confirm('This will clear all projects and assignments. Continue?')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      state = { team: defaultTeam(), projects: [] };
+      renderTeamBench();
+      renderProjects();
+    });
+
+    // ------- Init -------
+    renderTeamBench();
+    renderProjects();
+  </script>
+</body>
+</html>
